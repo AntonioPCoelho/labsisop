@@ -5,7 +5,7 @@
 #include <unistd.h>     // Para a função sleep()
 #include <sys/file.h>   // <<< MUDANÇA: Header necessário para flock()
 
-#define UPDATE_INTERVAL 5 // <<< MUDANÇA: Intervalo de atualização em segundos
+#define UPDATE_INTERVAL 4 // <<< MUDANÇA: Intervalo de atualização em segundos
 
 /*
  * =======================
