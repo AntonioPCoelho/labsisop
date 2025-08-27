@@ -3,16 +3,16 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>     // Para a função sleep()
-#include <sys/file.h>   // <<< MUDANÇA: Header necessário para flock()
+#include <sys/file.h>   // Header necessário para flock()
 
-#define UPDATE_INTERVAL 4 // <<< MUDANÇA: Intervalo de atualização em segundos
+#define UPDATE_INTERVAL 4 // Intervalo de atualização em segundos
 
 /*
- * =======================
+ * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  * Documentação da Função main (Versão para Serviço Contínuo)
- * =======================
- * Este programa roda em um loop contínuo para coletar diversas informações 
- * do sistema a partir do diretório /proc e as escreve em um arquivo HTML 
+ * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ * Este programa roda em um loop contínuo para coletar diversas informações
+ * do sistema a partir do diretório /proc e as escreve em um arquivo HTML
  * formatado (index.html).
  *
  * Ele utiliza flock() para garantir que a escrita no arquivo seja atômica
@@ -20,9 +20,9 @@
  */
 int main() {
 
-    // <<< MUDANÇA: Início do loop infinito
+    // Loop infinito
     while(1) {
-        // --- Variáveis ---
+        // Variáveis
         FILE *arquivo_proc;
         char buffer_leitura[256];
 
@@ -34,10 +34,10 @@ int main() {
         char cpu_model[128] = "N/A";
         float cpu_mhz = 0.0;
         int cpu_cores = 0;
-        int model_found = 0; 
-        int mhz_found = 0;   
+        int model_found = 0;
+        int mhz_found = 0;
 
-        // --- Abertura e Travamento do HTML ---
+        // Abertura e Trava do HTML
         FILE *arquivo_html = fopen("index.html", "w");
         if (arquivo_html == NULL) {
             perror("Erro ao criar o arquivo index.html");
@@ -45,7 +45,7 @@ int main() {
             continue; // Pula para a próxima iteração do loop
         }
 
-        // <<< MUDANÇA: Tenta obter uma trava exclusiva no arquivo
+        // Tenta obter uma trava exclusiva no arquivo
         printf("Tentando obter trava exclusiva para escrita...\n");
         if (flock(fileno(arquivo_html), LOCK_EX) != 0) {
             perror("flock (escritor)");
@@ -55,14 +55,14 @@ int main() {
         }
         printf("Trava obtida. Atualizando index.html...\n");
 
-        // --- Geração do Conteúdo HTML ---
+        // Geração HTML
         fprintf(arquivo_html, "<html><head><title>Informacoes do Sistema</title>"
-                              // <<< MUDANÇA: Adiciona auto-refresh na página
+                              // Adiciona auto-refresh na página
                               "<meta http-equiv='refresh' content='%d'></head>"
                               "<body>\n", UPDATE_INTERVAL);
         fprintf(arquivo_html, "<h1>Informacoes do Sistema</h1>\n");
 
-        // --- Coleta da Versão do Kernel ---
+        // Versão do Kernel
         arquivo_proc = fopen("/proc/version", "r");
         if (arquivo_proc != NULL) {
             fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc);
@@ -70,7 +70,7 @@ int main() {
             fclose(arquivo_proc);
         }
 
-        // --- Coleta de Uptime e Tempo Ocioso ---
+        // Uptime e Tempo Ocioso
         arquivo_proc = fopen("/proc/uptime", "r");
         if (arquivo_proc != NULL) {
             double uptime_total_seg, ocioso_total_seg;
@@ -79,14 +79,13 @@ int main() {
             sscanf(buffer_leitura, "%lf %lf", &uptime_total_seg, &ocioso_total_seg);
 
             long uptime_long = (long)uptime_total_seg;
-            fprintf(arquivo_html, "<p><b>Uptime:</b> %ldd %ldh %ldm %lds</p>\n", uptime_long/86400, (uptime_long%86400)/3600, (uptime_long%3600)/60, uptime_long%60);
+            fprintf(arquivo_html, "<p><b>Uptime:</b> %ldd %ldh %ldm %lds</p>\n", uptime_long/86400, (uptime_long%86400)/300, (uptime_long%3600)/60, uptime_long%60);
 
             long ocioso_long = (long)ocioso_total_seg;
             fprintf(arquivo_html, "<p><b>Tempo ocioso:</b> %ldd %ldh %ldm %lds</p>\n", ocioso_long/86400, (ocioso_long%86400)/3600, (ocioso_long%3600)/60, ocioso_long%60);
         }
 
-        // --- Coleta de Data e Hora do Sistema via RTC ---
-        // (Este arquivo pode não existir ou não ser legível em todos os sistemas)
+        // Coleta da Data e da Hora do Sistema -> RTC
         arquivo_proc = fopen("/proc/driver/rtc", "r");
         if (arquivo_proc != NULL) {
             while (fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc)) {
@@ -101,7 +100,7 @@ int main() {
         fprintf(arquivo_html, "<p><b>Data do sistema:</b> %s</p>\n", rtc_date);
         fprintf(arquivo_html, "<p><b>Hora do sistema:</b> %s</p>\n", rtc_time);
 
-        // --- Coleta de Informações da CPU ---
+        // Para coletar as infos da CPU
         arquivo_proc = fopen("/proc/cpuinfo", "r");
         if (arquivo_proc != NULL) {
             while (fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc)) {
@@ -129,7 +128,7 @@ int main() {
         fprintf(arquivo_html, "<p><b>Velocidade atual:</b> %.2f MHz</p>\n", cpu_mhz);
         fprintf(arquivo_html, "<p><b>Numero de nucleos:</b> %d</p>\n", cpu_cores);
 
-        // --- Coleta de Uso da CPU ---
+        // Para fazer a coleta de uso da CPU
         long long prev_user, prev_nice, prev_system, prev_idle, prev_iowait, prev_irq, prev_softirq;
         long long curr_user, curr_nice, curr_system, curr_idle, curr_iowait, curr_irq, curr_softirq;
         long long prev_total_idle, curr_total_idle, prev_total, curr_total;
@@ -140,15 +139,15 @@ int main() {
             fscanf(arquivo_proc, "cpu %lld %lld %lld %lld %lld %lld %lld",
                    &prev_user, &prev_nice, &prev_system, &prev_idle, &prev_iowait, &prev_irq, &prev_softirq);
             fclose(arquivo_proc);
-            
+
             sleep(1); // Pausa de 1 segundo para o cálculo
-            
+
             arquivo_proc = fopen("/proc/stat", "r");
             if (arquivo_proc != NULL) {
                 fscanf(arquivo_proc, "cpu %lld %lld %lld %lld %lld %lld %lld",
                        &curr_user, &curr_nice, &curr_system, &curr_idle, &curr_iowait, &curr_irq, &curr_softirq);
                 fclose(arquivo_proc);
-                
+
                 prev_total_idle = prev_idle + prev_iowait;
                 curr_total_idle = curr_idle + curr_iowait;
 
@@ -157,13 +156,12 @@ int main() {
 
                 long long total_diff = curr_total - prev_total;
                 long long idle_diff = curr_total_idle - prev_total_idle;
-                
+
                 if (total_diff > 0) {
                     cpu_usage = (double)(total_diff - idle_diff) * 100.0 / total_diff;
                 } else {
                     cpu_usage = 0.0;
                 }
-                
                 fprintf(arquivo_html, "<p><b>Uso do processador:</b> %.2f%%</p>\n", cpu_usage);
             } else {
                 fprintf(arquivo_html, "<p><b>Uso do processador:</b> N/A (Erro na 2a leitura)</p>\n");
@@ -172,21 +170,107 @@ int main() {
             fprintf(arquivo_html, "<p><b>Uso do processador:</b> N/A (Erro na 1a leitura)</p>\n");
         }
 
-        // --- Rodapé e Fechamento do Arquivo ---
+        // Esse faz a coleta da Carga do Sistema
+        float carga_1, carga_5, carga_15;
+        arquivo_proc = fopen("/proc/loadavg", "r");
+        if (arquivo_proc != NULL) {
+            fscanf(arquivo_proc, "%f %f %f", &carga_1, &carga_5, &carga_15);
+            fprintf(arquivo_html, "<p><b>Carga do sistema (1, 5, 15 min):</b> %.2f, %.2f, %.2f</p>\n", carga_1, carga_5, carga_15);
+            fclose(arquivo_proc);
+        } else {
+            fprintf(arquivo_html, "<p><b>Carga do sistema:</b> N/A</p>\n");
+        }
+
+        // Esse faz a coleta de Informações da Memória RAM
+        long mem_total_kb = 0, mem_disponivel_kb = 0;
+        arquivo_proc = fopen("/proc/meminfo", "r");
+        if (arquivo_proc != NULL) {
+            while (fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc)) {
+                if (strstr(buffer_leitura, "MemTotal:")) {
+                    sscanf(buffer_leitura, "MemTotal: %ld kB", &mem_total_kb);
+                }
+                // MemAvailable = métrica mais precisa da memória realmente disponível
+                if (strstr(buffer_leitura, "MemAvailable:")) {
+                    sscanf(buffer_leitura, "MemAvailable: %ld kB", &mem_disponivel_kb);
+                }
+            }
+            fclose(arquivo_proc);
+
+            if (mem_total_kb > 0 && mem_disponivel_kb > 0) {
+                long mem_usada_kb = mem_total_kb - mem_disponivel_kb;
+                fprintf(arquivo_html, "<p><b>Memoria RAM Total:</b> %.2f MB</p>\n", (double)mem_total_kb / 1024.0);
+                fprintf(arquivo_html, "<p><b>Memoria RAM Usada:</b> %.2f MB</p>\n", (double)mem_usada_kb / 1024.0);
+            } else {
+                fprintf(arquivo_html, "<p><b>Memoria RAM:</b> N/A (dados indisponiveis)</p>\n");
+            }
+        } else {
+            fprintf(arquivo_html, "<p><b>Memoria RAM:</b> N/A (erro ao ler /proc/meminfo)</p>\n");
+        }
+
+        // I/O (Entrada e Saida)
+        // "Operacoes" seriao como paginas lidas do disco e escritas para o disco
+        // Indicadores da atividade de I/O do sistema
+        long long pgpgin = 0, pgpgout = 0;
+        arquivo_proc = fopen("/proc/vmstat", "r");
+        if (arquivo_proc != NULL) {
+            while (fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc)) {
+                if (strstr(buffer_leitura, "pgpgin")) {
+                     sscanf(buffer_leitura, "pgpgin %lld", &pgpgin);
+                }
+                if (strstr(buffer_leitura, "pgpgout")) {
+                     sscanf(buffer_leitura, "pgpgout %lld", &pgpgout);
+                }
+            }
+            fclose(arquivo_proc);
+            fprintf(arquivo_html, "<p><b>Paginas lidas do disco (pgpgin):</b> %lld</p>\n", pgpgin);
+            fprintf(arquivo_html, "<p><b>Paginas escritas no disco (pgpgout):</b> %lld</p>\n", pgpgout);
+        } else {
+            fprintf(arquivo_html, "<p><b>Operacoes de I/O:</b> N/A</p>\n");
+        }
+
+        // Sistemas de Arquivos Suportados
+        fprintf(arquivo_html, "<p><b>Sistemas de arquivos suportados pelo kernel:</b> ");
+        arquivo_proc = fopen("/proc/filesystems", "r");
+        if (arquivo_proc != NULL) {
+            int first_fs = 1;
+            while (fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc)) {
+                char* fs = strrchr(buffer_leitura, '\t'); // usa tabulacao
+                if (fs != NULL) {
+                    fs++; // Pula o '\t'
+                } else {
+                    fs = buffer_leitura; // Caso nao tenha "nodev"
+                }
+                fs[strcspn(fs, "\n")] = 0; // Remove a quebra de linha
+
+                if (strlen(fs) > 0) {
+                     if (!first_fs) {
+                         fprintf(arquivo_html, ", ");
+                     }
+                     fprintf(arquivo_html, "%s", fs);
+                     first_fs = 0;
+                }
+            }
+            fclose(arquivo_proc);
+            fprintf(arquivo_html, "</p>\n");
+        } else {
+             fprintf(arquivo_html, "N/A</p>\n");
+        }
+
+        // Fecha o Arquivo
         fprintf(arquivo_html, "</body>\n</html>\n");
-        
-        // <<< MUDANÇA: Libera a trava do arquivo
+
+        // Libera a trava do arquivo
         flock(fileno(arquivo_html), LOCK_UN);
-        
+
         fclose(arquivo_html);
 
         printf("Arquivo index.html atualizado com sucesso!\n");
 
-        // <<< MUDANÇA: Aguarda o intervalo definido antes de recomeçar o loop
+        // Aguarda o intervalo definido antes de recomecar o loop
         printf("Aguardando %d segundos...\n\n", UPDATE_INTERVAL);
         sleep(UPDATE_INTERVAL);
 
-    } // <<< MUDANÇA: Fim do loop infinito
+    } // Fim do loop infinito
 
-    return 0; // Este ponto nunca será alcançado
+    return 0;
 }
