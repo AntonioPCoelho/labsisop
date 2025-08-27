@@ -171,11 +171,11 @@ int main() {
         }
 
         // Esse faz a coleta da Carga do Sistema
-        float carga_1, carga_5, carga_15;
+        float carga_1
         arquivo_proc = fopen("/proc/loadavg", "r");
         if (arquivo_proc != NULL) {
-            fscanf(arquivo_proc, "%f %f %f", &carga_1, &carga_5, &carga_15);
-            fprintf(arquivo_html, "<p><b>Carga do sistema (1, 5, 15 min):</b> %.2f, %.2f, %.2f</p>\n", carga_1, carga_5, carga_15);
+            fscanf(arquivo_proc, "%f", &carga_1);
+            fprintf(arquivo_html, "<p><b>Carga do sistema no ultimo min:</b> %.2f</p>\n", carga_1);
             fclose(arquivo_proc);
         } else {
             fprintf(arquivo_html, "<p><b>Carga do sistema:</b> N/A</p>\n");
