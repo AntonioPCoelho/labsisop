@@ -171,7 +171,7 @@ int main() {
         }
 
         // Esse faz a coleta da Carga do Sistema
-        float carga_1
+        float carga_1;
         arquivo_proc = fopen("/proc/loadavg", "r");
         if (arquivo_proc != NULL) {
             fscanf(arquivo_proc, "%f", &carga_1);
