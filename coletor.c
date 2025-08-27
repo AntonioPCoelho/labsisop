@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <unistd.h>     // Para a função sleep()
 #include <sys/file.h>   // Header necessário para flock()
+#include <dirent.h>     // Header para ler diretórios (necessário para a lista de processos)
 
 #define UPDATE_INTERVAL 4 // Intervalo de atualização em segundos
 
@@ -25,6 +26,7 @@ int main() {
         // Variáveis
         FILE *arquivo_proc;
         char buffer_leitura[256];
+        char path_buffer[512]; // Buffer para construir caminhos de arquivos dinamicamente
 
         // Variáveis para RTC
         char rtc_date[16] = "N/A";
@@ -79,7 +81,7 @@ int main() {
             sscanf(buffer_leitura, "%lf %lf", &uptime_total_seg, &ocioso_total_seg);
 
             long uptime_long = (long)uptime_total_seg;
-            fprintf(arquivo_html, "<p><b>Uptime:</b> %ldd %ldh %ldm %lds</p>\n", uptime_long/86400, (uptime_long%86400)/300, (uptime_long%3600)/60, uptime_long%60);
+            fprintf(arquivo_html, "<p><b>Uptime:</b> %ldd %ldh %ldm %lds</p>\n", uptime_long/86400, (uptime_long%86400)/3600, (uptime_long%3600)/60, uptime_long%60);
 
             long ocioso_long = (long)ocioso_total_seg;
             fprintf(arquivo_html, "<p><b>Tempo ocioso:</b> %ldd %ldh %ldm %lds</p>\n", ocioso_long/86400, (ocioso_long%86400)/3600, (ocioso_long%3600)/60, ocioso_long%60);
@@ -208,7 +210,7 @@ int main() {
         }
 
         // I/O (Entrada e Saida)
-        // "Operacoes" seriao como paginas lidas do disco e escritas para o disco
+        // "Operacoes" serao como paginas lidas do disco e escritas para o disco
         // Indicadores da atividade de I/O do sistema
         long long pgpgin = 0, pgpgout = 0;
         arquivo_proc = fopen("/proc/vmstat", "r");
@@ -255,6 +257,92 @@ int main() {
         } else {
              fprintf(arquivo_html, "N/A</p>\n");
         }
+        
+        // Coleta de Dispositivos de Caracter e Bloco
+        fprintf(arquivo_html, "<h3>Dispositivos Registrados (Caracter e Bloco)</h3>");
+        arquivo_proc = fopen("/proc/devices", "r");
+        if (arquivo_proc != NULL) {
+            // A tag <pre> preserva a formatação original do arquivo, facilitando a visualização
+            fprintf(arquivo_html, "<pre style='border: 1px solid #ccc; padding: 5px; background-color: #f9f9f9;'>");
+            while (fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc)) {
+                fprintf(arquivo_html, "%s", buffer_leitura);
+            }
+            fprintf(arquivo_html, "</pre>");
+            fclose(arquivo_proc);
+        } else {
+            fprintf(arquivo_html, "<p><b>Dispositivos:</b> N/A</p>\n");
+        }
+
+        // Coleta de Dispositivos de Rede
+        fprintf(arquivo_html, "<p><b>Dispositivos de rede:</b> ");
+        arquivo_proc = fopen("/proc/net/dev", "r");
+        if (arquivo_proc != NULL) {
+            // Pula as duas primeiras linhas, que sao cabecalhos
+            fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc);
+            fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc);
+
+            int first_net_dev = 1;
+            while (fgets(buffer_leitura, sizeof(buffer_leitura), arquivo_proc)) {
+                char* colon = strchr(buffer_leitura, ':');
+                if (colon) {
+                    *colon = '\0'; // Isola o nome do dispositivo na string
+                    char* dev_name = buffer_leitura;
+                    while (isspace(*dev_name)) dev_name++; // Remove espaços em branco à esquerda
+
+                    if (!first_net_dev) {
+                        fprintf(arquivo_html, ", ");
+                    }
+                    fprintf(arquivo_html, "%s", dev_name);
+                    first_net_dev = 0;
+                }
+            }
+            fprintf(arquivo_html, "</p>\n");
+            fclose(arquivo_proc);
+        } else {
+            fprintf(arquivo_html, "N/A</p>\n");
+        }
+
+        // Coleta da Lista de Processos em Execucao
+        fprintf(arquivo_html, "<h3>Lista de Processos em Execucao (PID e Nome)</h3>");
+        // Cria uma caixa com rolagem para a lista de processos nao ocupar a tela inteira
+        fprintf(arquivo_html, "<div style='height: 200px; overflow-y: scroll; border: 1px solid #ccc; padding: 5px; background-color: #f9f9f9;'>");
+
+        DIR *dir_proc = opendir("/proc");
+        struct dirent *entry;
+
+        if (dir_proc != NULL) {
+            while ((entry = readdir(dir_proc)) != NULL) {
+                // Checa se o nome da entrada no diretório é um número (caracterizando um PID)
+                char* name = entry->d_name;
+                int is_pid = 1;
+                if (*name == '\0') is_pid = 0; // Um nome vazio não é um PID
+                while (*name) {
+                    if (!isdigit(*name++)) {
+                        is_pid = 0;
+                        break;
+                    }
+                }
+
+                if (is_pid) {
+                    // Se for um PID, monta o caminho para o arquivo 'comm', que contém o nome do processo
+                    snprintf(path_buffer, sizeof(path_buffer), "/proc/%s/comm", entry->d_name);
+
+                    FILE* arq_comm = fopen(path_buffer, "r");
+                    if (arq_comm) {
+                        fgets(buffer_leitura, sizeof(buffer_leitura), arq_comm);
+                        // Remove a quebra de linha do final do nome para uma exibição limpa
+                        buffer_leitura[strcspn(buffer_leitura, "\n")] = 0;
+                        fprintf(arquivo_html, "<b>PID:</b> %s &nbsp;&nbsp; <b>Nome:</b> %s<br>", entry->d_name, buffer_leitura);
+                        fclose(arq_comm);
+                    }
+                }
+            }
+            closedir(dir_proc);
+        } else {
+            fprintf(arquivo_html, "Erro ao ler o diretorio /proc.");
+        }
+        fprintf(arquivo_html, "</div>");
+
 
         // Fecha o Arquivo
         fprintf(arquivo_html, "</body>\n</html>\n");
@@ -266,7 +354,7 @@ int main() {
 
         printf("Arquivo index.html atualizado com sucesso!\n");
 
-        // Aguarda o intervalo definido antes de recomecar o loop
+        // Aguarda o intervalo definido antes de recomeçar o loop
         printf("Aguardando %d segundos...\n\n", UPDATE_INTERVAL);
         sleep(UPDATE_INTERVAL);
 
